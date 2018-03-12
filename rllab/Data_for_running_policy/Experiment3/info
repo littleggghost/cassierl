@@ -1,0 +1,6 @@
+I trained over the pretrained policy from experiment 2.
+The reward function was changed.
+
+#reward
+  r = -(0.9 - self.xstate.body_x[1])**2
+  r -= 0.1*((sp[5] + sp[11])/2.0) ** 2        # penalty to feet not being over COM

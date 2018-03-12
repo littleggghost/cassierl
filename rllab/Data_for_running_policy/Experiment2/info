@@ -1,0 +1,5 @@
+This was trained on pretrained standing controller from experiment 1.
+It added cost on feet not being directly under COM.
+
+r = -(0.9 - self.xstate.body_x[1])**2
+r -= ((sp[5] + sp[11])/2.0) ** 2        # penalty to feet not being over COM
