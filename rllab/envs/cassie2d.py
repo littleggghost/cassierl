@@ -43,7 +43,14 @@ lib.GetOperationalSpaceState.restype = None
 lib.Display.argtypes = [ctypes.c_void_p, ctypes.c_bool]
 lib.Display.restype = None
 
-control_mode = {"torque" : 0, "jacobian" : 1, "operational" : 2}
+# Control Modes:
+#   1 : OSC
+#   2 : torque
+control_mode = 1
+assert control_mode == 1 or control_mode == 2, "Invalid Control Mode"
+
+print("Control mode = " + str(control_mode))
+
 
 class Cassie2dEnv(Env):
     """
@@ -53,13 +60,14 @@ class Cassie2dEnv(Env):
     def __init__(self):
         self.qstate = StateGeneral()
         self.xstate = StateOperationalSpace()
+
         self.action_osc = ControllerOsc()
         self.action_jac = ControllerForce()
-        self.cassie = lib.Cassie2dInit()
-        self.cvrt = convert()
         self.action_tor = ControllerTorque()
 
-        self.action_tor = ControllerTorque() # for torque control
+        self.cassie = lib.Cassie2dInit()
+        self.cvrt = convert()
+
         lib.Display(self.cassie, True)
 
     def reset(self):
@@ -73,16 +81,23 @@ class Cassie2dEnv(Env):
 
         return self.cvrt.operational_state_array_to_pos_invariant_array(s)
 
-    def step(self, action):
-        #convert action
-        self.action_osc = self.cvrt.array_to_operational_action(action)
+    def step(self, action, n=10):
+        # convert action
+        if control_mode == 1:
+            self.action_osc = self.cvrt.array_to_operational_action(action)
+        elif control_mode == 2:
+            self.action_tor = self.cvrt.array_to_torque_action(action)
 
         #current state
         lib.GetOperationalSpaceState(self.cassie, self.xstate)
         s = self.cvrt.operational_state_to_array(self.xstate)
 
-        for i in range(10):
-            lib.StepOsc(self.cassie, self.action_osc)
+        # Run the simulation forward by sending "action"
+        for i in range(n):
+            if control_mode == 1:
+                lib.StepOsc(self.cassie, self.action_osc)
+            elif control_mode == 2:
+                lib.StepTorque(self.cassie, self.action_tor)
 
         #next state
         lib.GetOperationalSpaceState(self.cassie, self.xstate)
@@ -90,37 +105,61 @@ class Cassie2dEnv(Env):
         sp = self.cvrt.operational_state_array_to_pos_invariant_array(sp)
 
         #reward
-        r = -(0.9 - self.xstate.body_x[1])**2        # penalty for body height error squared
-        r -= 0.05*((sp[5] + sp[11])/2.0) ** 2        # penalty to feet not being over COM
-        r -= 0.001*np.sum(action ** 2)               # to reduce jerkiness, cost on accelerations
-        r -= (0.0 - self.xstate.body_x[2])**2        # penalty on body pitch
+        r = 0.0
+        r -= 5*(0.9 - self.xstate.body_x[1]) ** 2  # penalty for body height error squared
+        # # r -= 5*(((sp[5] + sp[11]) / 2.0) ** 2)  # penalty for feet not being over COM
+        # r -= 5*sp[5] ** 2
+        # r -= 5*sp[11] ** 2
+        # r += 1  # reward for staying alive
+        r -= 0.1*np.sum(action ** 2)               # to reduce jerkiness, cost on accelerations
+        # r -= 0.05*(0.0 - self.xstate.body_x[2])**2   # penalty on body pitch
+
+
+        # print(self.xstate.body_x[0])
 
         #done
         done = False
         if (self.xstate.body_x[1] < 0.5):
             done = True
+            # r -= 500
+            # print("Terimanation cost = 500")
 
         return Step(observation=sp, reward=r, done=done)
 
     def render(self):
-        # lib.Render(self.cassie)
+        lib.Render(self.cassie)
         pass
 
 
     ###################################################################################################################
     #                              Functions for different action spaces
     ###################################################################################################################
-    def action_space_torque(self, action):
-        self.action_tor = self.cvrt.array_to_torque_action(action)
+    # def action_space_torque(self, action):
+    #     self.action_tor = self.cvrt.array_to_torque_action(action)
+    #
+    # def action_space_osc(self, action, speedup=10):
+    #     # this will take "action" from the RL, and convert them into "action" that can be sent to the OSC
+    #     self.action_osc = self.cvrt.array_to_operational_action(action)
+    #
+    #     # current state
+    #     lib.GetOperationalSpaceState(self.cassie, self.xstate)
+    #     s = self.cvrt.operational_state_to_array(self.xstate)
+    #
+    #     for i in range(speedup):
+    #         lib.StepOsc(self.cassie, self.action_osc)
+    #
+    #     # next state
+    #     lib.GetOperationalSpaceState(self.cassie, self.xstate)
+    #     sp = self.cvrt.operational_state_to_array(self.xstate)
+    #     sp = self.cvrt.operational_state_array_to_pos_invariant_array(sp)
+    #
+    #     return
 
-    def action_space_osc(self, action):
-        pass
 
+    ###################################################################################################################
+    #                             THE CONTROLLERS BELOW ARE FOR SQUATTING, NOT FOR RL
+    ###################################################################################################################
 
-
-
-
-    # THE CONTROLLERS BELOW ARE FOR SQUATTING, NOT FOR RL
     def standing_controller_osc(self, zpos_target, zvel_target):
         #get operational state
         lib.GetOperationalSpaceState(self.cassie, ctypes.byref(self.xstate))
@@ -196,13 +235,17 @@ class Cassie2dEnv(Env):
 
     @cached_property
     def action_space(self):
-        high = np.full((7,), 1e1) #accel of 100 may be reasonable
-        low = np.array([-1e1, -1e1, -1e1, 0, -1e1, 0, -1e1])
+        if control_mode == 1:
+            high = np.full((7,), 2e1) #accel of 100 may be reasonable
+            low = np.array([-2e1, -2e1, -2e1, 0, -2e1, 0, -2e1])
+        elif control_mode == 2:
+            high = np.array([12.0, 12.0, 0.9, 12.0, 12.0, 0.9])
+            low = -1.0*high
         return Box(low, high)
 
     def terminate(self):
         print("in here")
         del self.cassie
 
-    def release(self):
+    def release(self): # I dont need this. Please delete.
         pass

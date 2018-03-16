@@ -22,7 +22,7 @@ policy = GaussianMLPPolicy(
         baseline=baseline,
         batch_size=10000,
         max_path_length=5000, # dt = 1/2000
-        n_itr=1,
+        n_itr=1000,
         discount=0.99,
         step_size=0.01,
         # Uncomment both lines (this and the plot parameter below) to enable plotting

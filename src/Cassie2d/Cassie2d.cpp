@@ -87,8 +87,12 @@ void Cassie2d::Render() { if (display_) vis_->Draw(mj_data_); }
 
 void Cassie2d::Step(ControllerTorque* action)
 {
+  dyn_model_.setState(mj_data_->qpos, mj_data_->qvel);
+  dyn_state_.UpdateDynamicState(&dyn_model_);
+
   mju_copy(mj_data_->ctrl, action->torques, nU);
   mj_step(mj_model_, mj_data_);
+  Render();
 }
 
 void Cassie2d::StepJacobian(ControllerForce* action)

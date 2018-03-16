@@ -106,5 +106,4 @@ class InterfaceStructConverter():
         a = ControllerTorque()
         for i in range(6):
             a.torques[i] = action[i]
-
         return a
