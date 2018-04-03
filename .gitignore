@@ -4,6 +4,8 @@
 
 # Executables in bin/ directory
 bin/
+rllab/Data_for_running_policy
+
 
 # MuJoCo License Key and log
 mjkey.txt
@@ -52,6 +54,7 @@ MUJOCO_LOG.TXT
 *.exe
 *.out
 *.app
+
 
 # ==============================================================================
 # Linux

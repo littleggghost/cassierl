@@ -46,7 +46,7 @@ lib.Display.restype = None
 # Control Modes:
 #   1 : OSC
 #   2 : torque
-control_mode = 1
+control_mode = 2
 assert control_mode == 1 or control_mode == 2, "Invalid Control Mode"
 
 print("Control mode = " + str(control_mode))
@@ -106,13 +106,12 @@ class Cassie2dEnv(Env):
 
         #reward
         r = 0.0
-        r -= 5*(0.9 - self.xstate.body_x[1]) ** 2  # penalty for body height error squared
-        # # r -= 5*(((sp[5] + sp[11]) / 2.0) ** 2)  # penalty for feet not being over COM
-        # r -= 5*sp[5] ** 2
-        # r -= 5*sp[11] ** 2
-        # r += 1  # reward for staying alive
-        r -= 0.1*np.sum(action ** 2)               # to reduce jerkiness, cost on accelerations
-        # r -= 0.05*(0.0 - self.xstate.body_x[2])**2   # penalty on body pitch
+        r -= 5 * (0.9 - self.xstate.body_x[1]) ** 2  # penalty for body height error squared
+        # r -= 5*(((sp[5] + sp[11]) / 2.0) ** 2)  # penalty for feet not being over COM
+        r -= 5 * sp[5] ** 2
+        r -= 5 * sp[11] ** 2
+        r += 1  # reward for staying alive
+        r -= 0.01 * np.sum(action ** 2)  # to reduce jerkiness, cost on accelerations
 
 
         # print(self.xstate.body_x[0])

@@ -6,7 +6,7 @@ from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
 import joblib
 
-load_policy = False
+load_policy = True
 
 
 def run_task(*_):
@@ -32,9 +32,9 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=10000,
+        batch_size=15000,
         max_path_length=1000, # dt = (1/2000)*n, where n is Step(n)
-        n_itr=500,
+        n_itr=5000,
         discount=0.99,
         step_size=0.005,      # default was 0.01
         # Uncomment both lines (this and the plot parameter below) to enable plotting
